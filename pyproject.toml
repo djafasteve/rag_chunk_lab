@@ -1,0 +1,160 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-chunk-lab"
+version = "1.0.0"
+description = "Laboratoire pour tester et comparer différentes stratégies de chunking dans les pipelines RAG"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Steve Moses", email = "steve.moses@example.com"},
+]
+maintainers = [
+    {name = "Steve Moses", email = "steve.moses@example.com"},
+]
+keywords = [
+    "rag", "chunking", "nlp", "information-retrieval",
+    "document-analysis", "ragas", "evaluation", "llm", "ai"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.112.0",
+    "uvicorn>=0.30.6",
+    "typer>=0.12.3",
+    "pydantic>=2.8.2",
+    "numpy>=1.26.4",
+    "scikit-learn>=1.4.2",
+    "joblib>=1.4.2",
+    "pypdf>=4.2.0",
+    "regex>=2024.5.15",
+    "tqdm>=4.66.4",
+    "ragas>=0.3.4",
+    "openai>=1.0.0",
+    "datasets",
+    "langchain-openai",
+    "pandas",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocs-mermaid2-plugin>=1.0.0",
+]
+all = [
+    "rag-chunk-lab[dev,docs]",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/rag-chunk-lab"
+Repository = "https://github.com/your-username/rag-chunk-lab"
+Documentation = "https://github.com/your-username/rag-chunk-lab/blob/main/README.md"
+"Bug Reports" = "https://github.com/your-username/rag-chunk-lab/issues"
+"Feature Requests" = "https://github.com/your-username/rag-chunk-lab/issues"
+Changelog = "https://github.com/your-username/rag-chunk-lab/blob/main/CHANGELOG.md"
+
+[project.scripts]
+rag-chunk-lab = "rag_chunk_lab.cli:app"
+generate-ground-truth = "generate_ground_truth:main"
+
+[tool.setuptools.packages.find]
+include = ["rag_chunk_lab*"]
+exclude = ["tests*", "docs*", "examples*"]
+
+[tool.setuptools.package-data]
+rag_chunk_lab = ["*.py", "py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["rag_chunk_lab"]
+skip_glob = ["*.pyi"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["rag_chunk_lab"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
