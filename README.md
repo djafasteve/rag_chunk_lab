@@ -27,18 +27,206 @@ cd rag_chunk_lab
 python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+# Pour le pipeline sémantique local (optionnel mais recommandé)
+pip install sentence-transformers
+
+# Pour Azure OpenAI (embeddings cloud de qualité professionnelle)
+pip install openai
+export AZURE_OPENAI_API_KEY="votre-clé"
+export AZURE_OPENAI_ENDPOINT="https://votre-resource.openai.azure.com"
+export AZURE_OPENAI_DEPLOYMENT="text-embedding-ada-002"
+export AZURE_OPENAI_EMBEDDING_DEPLOYMENT="text-embedding-ada-002"
+export AZURE_OPENAI_API_VERSION="2024-02-15-preview"
 ```
 
-### Étape 2 : Tester avec un document
+### Étape 2 : Ingérer vos documents
+
+#### Option A : Un seul document
 ```bash
 # Ingérer un document PDF/TXT/MD
-python -m rag_chunk_lab.cli ingest --doc mon_document.pdf --doc-id test
-
-# Poser une question et voir les 3 réponses
-python -m rag_chunk_lab.cli ask --doc-id test --question "Quel est le délai de prescription ?"
+python3 -m rag_chunk_lab.cli ingest --doc mon_document.pdf --doc-id test
 ```
 
+#### Option B : Un dossier complet (🆕 Recommandé)
+```bash
+# Ingérer tous les documents d'un dossier sous un seul doc-id
+python3 -m rag_chunk_lab.cli ingest --doc mes_documents/ --doc-id ma_collection
+
+# Support automatique : .pdf, .txt, .md
+# Chaque document garde son nom de fichier source dans les métadonnées
+```
+
+### Étape 3 : Interroger votre collection
+
+#### Option A : Analyse comparative des 5 stratégies
+```bash
+# Voir les 5 réponses (fixed, structure, sliding, semantic, azure_semantic) pour analyser
+python3 -m rag_chunk_lab.cli ask --doc-id ma_collection --question "Quel est le délai de prescription ?"
+
+# Désactiver les pipelines sémantiques si besoin
+python3 -m rag_chunk_lab.cli ask --doc-id ma_collection --question "..." --no-semantic --no-azure-semantic
+```
+
+#### Option B : Chat IA avec réponse synthétisée (🆕 Recommandé)
+```bash
+# Obtenir une réponse claire et contextuelle générée par l'IA (utilise Azure semantic par défaut)
+python3 -m rag_chunk_lab.cli chat --doc-id ma_collection --question "Quel est le délai de prescription ?"
+
+# Avec modèle spécialisé pour l'expertise juridique
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id ma_collection \
+  --question "Quelles sont les sanctions en cas de récidive ?" \
+  --pipeline azure_semantic \
+  --provider ollama \
+  --model votre-modele-juridique \
+  --top-k 5
+
+# Ou avec le modèle par défaut
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id ma_collection \
+  --question "Quelles sont les sanctions en cas de récidive ?" \
+  --pipeline azure_semantic
+```
+
+**🧠 Nouveauté : Pipelines Sémantiques**
+
+**🔹 Semantic (Local)** :
+- 🔍 **Comprend le sens** : Trouve "sanctions" même quand le texte dit "peines"
+- 🏠 **Local** : Modèle français `dangvantuan/sentence-camembert-large`
+- 🆓 **Gratuit** : Pas de coût API
+
+**☁️ Azure Semantic (Cloud)** :
+- 🎯 **Qualité professionnelle** : Embeddings Azure OpenAI de dernière génération
+- 📚 **Optimisé juridique** : Excellente compréhension des textes légaux
+- 🌐 **Multilingue** : Meilleure gestion français/anglais
+- ⚡ **Pas de modèle lourd** : Traitement dans le cloud
+
+**Avantages du mode chat :**
+- 🎯 **Réponse synthétisée** : L'IA combine et résume les sources pertinentes
+- 📚 **Citations des sources** : Références aux documents et pages consultés
+- 🔍 **Contextuel** : Utilise uniquement les informations de vos documents
+- ⚡ **Prêt à l'emploi** : Fonctionne avec Ollama (local) ou Azure OpenAI
+
 **Résultat** : 3 réponses comparées + fichier `exports/test/sources_<timestamp>.csv`
+
+| Commande   | ask                       | chat (🆕)              |
+  |------------|---------------------------|------------------------|
+  | Sortie     | JSON brut des 3 pipelines | Réponse IA synthétisée |
+  | Usage      | Analyse comparative       | Conversation naturelle |
+  | Sources    | Chunks séparés            | Citations intégrées    |
+  | Lisibilité | Technique                 | Grand public           |
+
+  🤖 Fonctionnalités clés
+
+  - ✅ Réponse synthétisée : L'IA combine plusieurs sources et résume
+  - ✅ Citations automatiques : Références aux documents et pages
+  - ✅ Contextuel : Utilise uniquement vos documents (pas d'hallucination)
+  - ✅ Configurable : Choix du pipeline, provider LLM, et nombre de sources
+  - ✅ Fallback robuste : Affiche les chunks même si l'IA échoue
+  - ✅ Support multimodal : Ollama (local/gratuit) et Azure OpenAI
+
+---
+
+## 🧠 Comprendre les 5 Stratégies de Recherche
+
+### Pourquoi 5 approches différentes ?
+
+Chaque méthode a ses forces selon le type de documents et de questions :
+
+#### 1. **Fixed** (Chunks de taille fixe) ⚖️
+- **Principe :** Découpe le texte en morceaux de taille régulière
+- **Idéal pour :** Documents homogènes, recherches factuelles précises
+- **Exemple :** "Quel est l'article 123 ?" dans un code juridique
+
+#### 2. **Structure** (Conscient de la structure) 🏗️
+- **Principe :** Respecte les titres, sections, paragraphes
+- **Idéal pour :** Documents bien structurés, recherches par section
+- **Exemple :** "Que dit le chapitre sur les contrats ?" dans un manuel
+
+#### 3. **Sliding** (Fenêtre glissante) 🔄
+- **Principe :** Fenêtres qui se chevauchent pour capturer les transitions
+- **Idéal pour :** Concepts qui s'étendent sur plusieurs paragraphes
+- **Exemple :** "Comment fonctionne le processus de validation ?" (description longue)
+
+#### 4. **Semantic** (Sémantique Local) 🧠 **← Nouveauté !**
+- **Principe :** Comprend le **sens** des mots avec un modèle IA local
+- **Idéal pour :** Questions en langage naturel, usage gratuit
+- **Modèle :** `dangvantuan/sentence-camembert-large` (français)
+
+#### 5. **Azure Semantic** (Sémantique Cloud) ☁️ **← Premium !**
+- **Principe :** Comprend le **sens** avec Azure OpenAI embeddings
+- **Idéal pour :** Documents juridiques, qualité maximale
+- **Exemples magiques (communs aux 2 sémantiques) :**
+  - Question: "sanctions" → Trouve: "peines", "condamnations", "punitions"
+  - Question: "délai" → Trouve: "durée", "terme", "période"
+  - Question: "interdit" → Trouve: "prohibé", "défendu", "illégal"
+
+### 🎯 Conseil Pratique
+
+```bash
+# 1. Commencez par tester les 5 approches
+python3 -m rag_chunk_lab.cli ask --doc-id votre_doc --question "votre question"
+
+# 2. Pour l'usage quotidien, privilégiez Azure semantic (si configuré)
+python3 -m rag_chunk_lab.cli chat --doc-id votre_doc --question "votre question" --pipeline azure_semantic
+
+# 3. Sinon, utilisez le sémantique local
+python3 -m rag_chunk_lab.cli chat --doc-id votre_doc --question "votre question" --pipeline semantic
+
+# 4. Avec un modèle spécialisé pour votre domaine d'expertise
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id votre_doc \
+  --question "votre question" \
+  --model votre-modele-specialise
+```
+
+### 🤖 Modèles LLM Recommandés
+
+#### **Pour Documents Juridiques :**
+```bash
+# Modèle par défaut (généraliste)
+--model mistral:7b
+
+# Modèles spécialisés juridiques (si disponibles dans votre Ollama)
+--model llama3:8b  # Meilleure compréhension contextuelle
+--model "hf.co/MaziyarPanahi/calme-2.3-legalkit-8b-GGUF:Q8_0"  # Modèle juridique français spécialisé
+--model llama3.2:latest  # Compact et efficace
+--model codellama:13b  # Si documents contiennent du code/réglementation
+```
+
+#### **Pour Documents Techniques :**
+```bash
+--model codellama:7b  # Spécialisé code et documentation technique
+--model llama3:8b     # Bon compromis qualité/vitesse
+```
+
+#### **Configuration Permanente :**
+Pour éviter de répéter `--model` à chaque fois, modifiez dans `config.py` :
+```python
+# Pour usage juridique quotidien
+DEFAULTS.default_model = "hf.co/MaziyarPanahi/calme-2.3-legalkit-8b-GGUF:Q8_0"
+
+# Ou pour usage généraliste rapide
+DEFAULTS.default_model = "llama3.2:latest"
+```
+
+#### **Exemples Pratiques avec Modèle Juridique :**
+```bash
+# Question juridique avec modèle spécialisé
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id codes_juridiques \
+  --question "Quelles sont les conditions de la légitime défense ?" \
+  --pipeline azure_semantic \
+  --model "hf.co/MaziyarPanahi/calme-2.3-legalkit-8b-GGUF:Q8_0"
+
+# Comparaison rapide avec modèle général
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id codes_juridiques \
+  --question "Quelles sont les conditions de la légitime défense ?" \
+  --pipeline azure_semantic \
+  --model mistral:7b
+```
 
 ---
 
@@ -94,7 +282,7 @@ Une fois votre dataset créé, comparez les 3 stratégies de chunking :
 
 ```bash
 # Évaluer les 3 pipelines avec métriques d'expert
-python -m rag_chunk_lab.cli evaluate \
+python3 -m rag_chunk_lab.cli evaluate \
   --doc-id test \
   --ground-truth mes_docs_ground_truth.jsonl \
   --ragas \
@@ -146,6 +334,61 @@ Après évaluation, vous trouvez dans `exports/test/` :
 2. **Ouvrir `ragas_per_question.csv`** → Analyser les détails
 3. **Créer un graphique radar** comparant les 4 métriques par pipeline
 4. **Identifier** quelle stratégie fonctionne le mieux sur votre type de documents
+
+---
+
+## 💡 Exemples Pratiques
+
+### Cas d'Usage Typiques
+
+#### 📚 Collection de Documentation Technique
+```bash
+# Dossier avec manuels PDF, guides TXT, et docs Markdown
+python3 -m rag_chunk_lab.cli ingest --doc documentation_produit/ --doc-id docs_techniques
+
+# Questions: "Comment configurer SSL?", "Quels sont les prérequis?"
+python3 -m rag_chunk_lab.cli chat --doc-id docs_techniques --question "Comment configurer SSL?" --pipeline semantic
+```
+
+#### ⚖️ Corpus Juridique
+```bash
+# Dossier avec codes, jurisprudences, circulaires
+python3 -m rag_chunk_lab.cli ingest --doc corpus_juridique/ --doc-id droit_penal
+
+# Questions: "Quel est le délai de prescription?", "Quelles sont les circonstances aggravantes?"
+python3 -m rag_chunk_lab.cli chat --doc-id droit_penal --question "Quelles sont les circonstances aggravantes?" --pipeline semantic
+```
+
+#### 🏢 Base de Connaissances Entreprise
+```bash
+# Procédures, politiques, manuels RH
+python3 -m rag_chunk_lab.cli ingest --doc knowledge_base/ --doc-id entreprise
+
+# Questions: "Quelle est la politique de télétravail?", "Comment demander un congé?"
+python3 -m rag_chunk_lab.cli chat --doc-id entreprise --question "Quelle est la politique de télétravail?" --pipeline semantic
+```
+
+### Workflow Complet Recommandé
+
+```bash
+# 1. Ingérer votre collection de documents
+python3 -m rag_chunk_lab.cli ingest --doc mes_documents/ --doc-id ma_collection
+
+# 2. Générer automatiquement un dataset de test
+python3 generate_ground_truth.py --folder mes_documents --questions-per-doc 5
+
+# 3. Évaluer et comparer les 3 stratégies
+python3 -m rag_chunk_lab.cli evaluate \
+  --doc-id ma_collection \
+  --ground-truth mes_documents_ground_truth.jsonl \
+  --ragas --use-llm
+
+# 4. Analyser les résultats dans Excel
+# Ouvrir exports/ma_collection/ragas_summary.csv
+
+# 5. Utiliser la stratégie sémantique pour un usage quotidien optimal
+python3 -m rag_chunk_lab.cli chat --doc-id ma_collection --question "Votre question" --pipeline semantic
+```
 
 ---
 

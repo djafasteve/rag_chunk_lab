@@ -1,6 +1,12 @@
 from typing import List, Dict
 from .utils import tokenize_words, join_tokens, iter_headings
 
+try:
+    from sentence_transformers import SentenceTransformer
+    SEMANTIC_AVAILABLE = True
+except ImportError:
+    SEMANTIC_AVAILABLE = False
+
 def fixed_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: int, doc_id: str) -> List[Dict]:
     chunks: List[Dict] = []
     for p in pages:
@@ -9,7 +15,15 @@ def fixed_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: int, doc_i
         while start < len(tokens):
             end = min(start + size_tokens, len(tokens))
             text = join_tokens(tokens[start:end])
-            chunks.append({'doc_id': doc_id, 'page': p['page'], 'start': start, 'end': end, 'section_title': None, 'text': text})
+            chunks.append({
+                'doc_id': doc_id,
+                'page': p['page'],
+                'start': start,
+                'end': end,
+                'section_title': None,
+                'source_file': p.get('source_file', doc_id),
+                'text': text
+            })
             if end == len(tokens):
                 break
             start = max(end - overlap_tokens, 0)
@@ -36,7 +50,15 @@ def structure_aware_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: 
             while start < len(tokens):
                 end = min(start + size_tokens, len(tokens))
                 ctext = join_tokens(tokens[start:end])
-                chunks.append({'doc_id': doc_id, 'page': p['page'], 'start': start, 'end': end, 'section_title': title, 'text': ctext})
+                chunks.append({
+                    'doc_id': doc_id,
+                    'page': p['page'],
+                    'start': start,
+                    'end': end,
+                    'section_title': title,
+                    'source_file': p.get('source_file', doc_id),
+                    'text': ctext
+                })
                 if end == len(tokens):
                     break
                 start = max(end - overlap_tokens, 0)
@@ -52,8 +74,49 @@ def sliding_window_chunks(pages: List[Dict], window: int, stride: int, doc_id: s
         while start < len(tokens):
             end = min(start + window, len(tokens))
             text = join_tokens(tokens[start:end])
-            chunks.append({'doc_id': doc_id, 'page': p['page'], 'start': start, 'end': end, 'section_title': None, 'text': text})
+            chunks.append({
+                'doc_id': doc_id,
+                'page': p['page'],
+                'start': start,
+                'end': end,
+                'section_title': None,
+                'source_file': p.get('source_file', doc_id),
+                'text': text
+            })
             if end == len(tokens):
                 break
             start = start + stride
     return chunks
+
+def semantic_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: int, doc_id: str) -> List[Dict]:
+    """
+    Pipeline sémantique : utilise les mêmes chunks que fixed_chunks
+    mais optimise pour la recherche sémantique avec des embeddings locaux.
+
+    Avantages:
+    - Comprend le sens des mots (synonymes, paraphrases)
+    - Meilleure recherche en langage naturel
+    - Trouve des passages pertinents même avec vocabulaire différent
+    """
+    if not SEMANTIC_AVAILABLE:
+        raise ImportError("sentence-transformers non installé. Installer avec: pip install sentence-transformers")
+
+    # Utilise la même logique de chunking que fixed_chunks pour cohérence
+    return fixed_chunks(pages, size_tokens, overlap_tokens, doc_id)
+
+def azure_semantic_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: int, doc_id: str) -> List[Dict]:
+    """
+    Pipeline sémantique Azure : utilise les mêmes chunks que fixed_chunks
+    mais optimise pour la recherche sémantique avec Azure OpenAI embeddings.
+
+    Avantages:
+    - Embeddings de qualité professionnelle Azure OpenAI
+    - Meilleure compréhension contextuelle pour documents juridiques
+    - Recherche multilingue optimisée
+    - Pas besoin de modèle local lourd
+    """
+    # Pas besoin de vérifier SEMANTIC_AVAILABLE car utilise Azure OpenAI
+    # La vérification se fait dans build_azure_semantic_index
+
+    # Utilise la même logique de chunking que fixed_chunks pour cohérence
+    return fixed_chunks(pages, size_tokens, overlap_tokens, doc_id)

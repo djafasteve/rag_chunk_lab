@@ -3,7 +3,7 @@ from pathlib import Path
 from tqdm import tqdm
 from .config import DEFAULTS
 from .utils import load_document
-from .chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks
+from .chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks, semantic_chunks, azure_semantic_chunks
 from .indexing import build_index
 from .retrieval import get_candidates
 from .generation import build_answer_payload
@@ -56,27 +56,226 @@ def ingest(doc: str = typer.Option(..., '--doc'),
            fixed_overlap: int = typer.Option(DEFAULTS.fixed_overlap_tokens, '--fixed-overlap'),
            win: int = typer.Option(DEFAULTS.sliding_window, '--window'),
            stride: int = typer.Option(DEFAULTS.sliding_stride, '--stride')):
-    pages = load_document(doc)
-    fx = fixed_chunks(pages, fixed_size, fixed_overlap, doc_id)
+    """
+    Ingest a document or folder of documents.
+
+    If --doc points to a file: processes that single document
+    If --doc points to a folder: processes all supported documents (.pdf, .txt, .md) in that folder
+    """
+    from pathlib import Path
+
+    doc_path = Path(doc)
+    all_pages = []
+
+    if doc_path.is_file():
+        # Single document
+        typer.echo(f"📄 Processing single document: {doc_path.name}")
+        all_pages = load_document(str(doc_path))
+
+    elif doc_path.is_dir():
+        # Folder of documents
+        doc_files = []
+        for ext in ['*.pdf', '*.txt', '*.md']:
+            doc_files.extend(doc_path.glob(ext))
+
+        if not doc_files:
+            typer.echo(f"❌ No supported documents (.pdf, .txt, .md) found in {doc_path}")
+            raise typer.Exit(1)
+
+        typer.echo(f"📁 Processing {len(doc_files)} documents from folder: {doc_path}")
+
+        for doc_file in tqdm(doc_files, desc="Loading documents"):
+            try:
+                pages = load_document(str(doc_file))
+                # Add source document info to each page
+                for page in pages:
+                    page['source_file'] = doc_file.name
+                all_pages.extend(pages)
+                typer.echo(f"  ✅ Loaded {doc_file.name} ({len(pages)} pages)")
+            except Exception as e:
+                typer.echo(f"  ❌ Failed to load {doc_file.name}: {e}")
+                continue
+
+        if not all_pages:
+            typer.echo("❌ No pages could be loaded from any document")
+            raise typer.Exit(1)
+
+    else:
+        typer.echo(f"❌ Path not found: {doc_path}")
+        raise typer.Exit(1)
+
+    # Process all pages together under the same doc_id
+    typer.echo(f"🔧 Building indexes for {len(all_pages)} total pages...")
+
+    fx = fixed_chunks(all_pages, fixed_size, fixed_overlap, doc_id)
     build_index(doc_id, 'fixed', fx, DATA_DIR)
-    sa = structure_aware_chunks(pages, fixed_size, fixed_overlap, doc_id)
+    sa = structure_aware_chunks(all_pages, fixed_size, fixed_overlap, doc_id)
     build_index(doc_id, 'structure', sa, DATA_DIR)
-    sw = sliding_window_chunks(pages, win, stride, doc_id)
+    sw = sliding_window_chunks(all_pages, win, stride, doc_id)
     build_index(doc_id, 'sliding', sw, DATA_DIR)
-    typer.echo(f'Ingested {doc_id}. Pipelines built: fixed({len(fx)}) / structure({len(sa)}) / sliding({len(sw)})')
+
+    # Pipeline sémantique local (🧠)
+    try:
+        sem = semantic_chunks(all_pages, fixed_size, fixed_overlap, doc_id)
+        build_index(doc_id, 'semantic', sem, DATA_DIR)
+        semantic_status = f'semantic({len(sem)}) 🧠'
+    except ImportError as e:
+        typer.echo(f'⚠️  Pipeline sémantique local ignoré: {e}')
+        semantic_status = ''
+
+    # Pipeline sémantique Azure (☁️)
+    try:
+        azure_sem = azure_semantic_chunks(all_pages, fixed_size, fixed_overlap, doc_id)
+        build_index(doc_id, 'azure_semantic', azure_sem, DATA_DIR)
+        azure_semantic_status = f'azure_semantic({len(azure_sem)}) ☁️'
+    except Exception as e:
+        typer.echo(f'⚠️  Pipeline sémantique Azure ignoré: {e}')
+        azure_semantic_status = ''
+
+    # Message de statut final
+    pipelines_status = f'fixed({len(fx)}) / structure({len(sa)}) / sliding({len(sw)})'
+    if semantic_status:
+        pipelines_status += f' / {semantic_status}'
+    if azure_semantic_status:
+        pipelines_status += f' / {azure_semantic_status}'
+
+    typer.echo(f'✅ Ingested {doc_id}. Pipelines built: {pipelines_status}')
 
 @app.command()
 def ask(doc_id: str = typer.Option(..., '--doc-id'),
         question: str = typer.Option(..., '--question'),
         top_k: int = typer.Option(DEFAULTS.top_k, '--top-k'),
         max_sentences: int = typer.Option(DEFAULTS.max_sentences, '--max-sentences'),
-        use_llm: bool = typer.Option(False, '--use-llm')):
+        use_llm: bool = typer.Option(False, '--use-llm'),
+        include_semantic: bool = typer.Option(True, '--semantic/--no-semantic', help='Inclure le pipeline sémantique local'),
+        include_azure_semantic: bool = typer.Option(True, '--azure-semantic/--no-azure-semantic', help='Inclure le pipeline sémantique Azure')):
+    """
+    Compare les réponses des différentes stratégies de chunking.
+
+    Maintenant avec 5 pipelines :
+    - fixed: Chunks de taille fixe
+    - structure: Chunks conscients de la structure
+    - sliding: Fenêtre glissante
+    - semantic: Recherche sémantique locale (🆕)
+    - azure_semantic: Recherche sémantique Azure (🆕)
+    """
     results = []
-    for pipe in ['fixed', 'structure', 'sliding']:
-        cands = get_candidates(doc_id, question, pipe, top_k, DATA_DIR)
-        payload = build_answer_payload(pipe, question, cands, max_sentences=max_sentences, use_llm=use_llm)
-        results.append(payload)
+    pipelines = ['fixed', 'structure', 'sliding']
+
+    if include_semantic:
+        pipelines.append('semantic')
+
+    if include_azure_semantic:
+        pipelines.append('azure_semantic')
+
+    for pipe in pipelines:
+        try:
+            cands = get_candidates(doc_id, question, pipe, top_k, DATA_DIR)
+            payload = build_answer_payload(pipe, question, cands, max_sentences=max_sentences, use_llm=use_llm)
+            results.append(payload)
+        except Exception as e:
+            if pipe in ['semantic', 'azure_semantic']:
+                typer.echo(f"⚠️  Pipeline {pipe} ignoré: {e}", err=True)
+            else:
+                raise e
+
     typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
+
+@app.command()
+def chat(doc_id: str = typer.Option(..., '--doc-id'),
+         question: str = typer.Option(..., '--question'),
+         top_k: int = typer.Option(DEFAULTS.top_k, '--top-k'),
+         provider: str = typer.Option(DEFAULTS.default_provider, '--provider', help='LLM provider: ollama or azure'),
+         model: str = typer.Option(DEFAULTS.default_model, '--model', help='Model name (ex: mistral:7b, llama3:8b, votre-modele-juridique)'),
+         pipeline: str = typer.Option('azure_semantic', '--pipeline', help='Chunking strategy: fixed, structure, sliding, semantic, azure_semantic')):
+    """
+    Chat with your documents using AI.
+
+    Gets relevant chunks and asks an LLM to synthesize a comprehensive answer.
+    Perfect for natural conversations with your document collection.
+    """
+    from .ground_truth_generator import create_llm_client
+
+    # Get relevant chunks using the specified pipeline
+    try:
+        cands = get_candidates(doc_id, question, pipeline, top_k, DATA_DIR)
+    except Exception as e:
+        if pipeline in ['semantic', 'azure_semantic']:
+            typer.echo(f"❌ Pipeline {pipeline} non disponible: {e}")
+            typer.echo(f"💡 Conseil: Utilisez --pipeline fixed pour une alternative")
+            raise typer.Exit(1)
+        else:
+            raise
+
+    if not cands:
+        typer.echo(f"❌ No relevant information found for: {question}")
+        raise typer.Exit(1)
+
+    # Prepare context from chunks
+    context_parts = []
+    for i, cand in enumerate(cands, 1):
+        meta = cand.get('meta', {})
+        source_file = meta.get('source_file', 'Document')
+        page = meta.get('page', 'N/A')
+        source_info = f"[Source {i}: {source_file} - Page {page}]"
+        context_parts.append(f"{source_info}\n{cand['text']}")
+
+    context = "\n\n".join(context_parts)
+
+    # Create prompt for LLM
+    prompt = f"""Tu es un assistant expert qui répond à des questions en te basant sur des documents fournis.
+
+QUESTION: {question}
+
+CONTEXTE DOCUMENTAIRE:
+{context}
+
+INSTRUCTIONS:
+1. Réponds à la question en utilisant UNIQUEMENT les informations du contexte fourni
+2. Sois précis et factuel
+3. Si plusieurs sources sont pertinentes, synthétise-les
+4. Si l'information n'est pas dans le contexte, dis-le clairement
+5. Cite les sources quand c'est pertinent (ex: "Selon le document X, page Y...")
+
+RÉPONSE:"""
+
+    try:
+        # Initialize LLM client
+        typer.echo(f"🤖 Génération de la réponse avec {provider}:{model}...")
+        llm_client = create_llm_client(provider, model)
+
+        # Generate response
+        response = llm_client.generate(prompt)
+
+        # Display results
+        typer.echo(f"\n💬 Question: {question}")
+        typer.echo(f"📚 Sources consultées: {len(cands)} chunks (pipeline: {pipeline})")
+        typer.echo(f"🤖 Réponse ({provider}:{model}):\n")
+        typer.echo(response)
+
+        # Show sources
+        typer.echo(f"\n📖 Sources détaillées:")
+        for i, cand in enumerate(cands, 1):
+            score = cand.get('score', 0)
+            meta = cand.get('meta', {})
+            source_file = meta.get('source_file', 'Document')
+            doc_id = meta.get('doc_id', 'N/A')
+            page = meta.get('page', 'N/A')
+            snippet = cand.get('text', '')[:150] + '...' if len(cand.get('text', '')) > 150 else cand.get('text', '')
+            typer.echo(f"  {i}. {source_file} (collection: {doc_id}, page {page}) - Score: {score:.3f}")
+            typer.echo(f"     \"{snippet}\"")
+
+    except Exception as e:
+        typer.echo(f"❌ Erreur lors de la génération: {e}")
+        typer.echo(f"\n📋 Chunks trouvés sans IA:")
+        for i, cand in enumerate(cands, 1):
+            meta = cand.get('meta', {})
+            source_file = meta.get('source_file', 'Document')
+            doc_id = meta.get('doc_id', 'N/A')
+            page = meta.get('page', 'N/A')
+            typer.echo(f"  {i}. {source_file} (collection: {doc_id}, page {page})")
+            typer.echo(f"     {cand.get('text', '')[:200]}...")
+        raise typer.Exit(1)
 
 @app.command()
 def evaluate(doc_id: str = typer.Option(..., '--doc-id'),

@@ -8,6 +8,8 @@ class Defaults(BaseModel):
     sliding_stride: int = 200
     top_k: int = 6
     max_sentences: int = 4
+    default_model: str = 'mistral:7b'
+    default_provider: str = 'ollama'
 
 class AzureOpenAIConfig(BaseModel):
     api_key: str = os.environ.get('AZURE_OPENAI_API_KEY', '')

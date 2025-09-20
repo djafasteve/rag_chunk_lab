@@ -104,6 +104,7 @@ def build_answer_payload(pipeline: str, question: str, candidates: List[Dict], m
         'start': c['meta']['start'],
         'end': c['meta']['end'],
         'section_title': c['meta']['section_title'],
+        'source_file': c['meta'].get('source_file', c['meta']['doc_id']),
         'snippet': c['text'][:300]
     } for c in candidates]
     return {'pipeline': pipeline, 'answer': answer, 'sources': sources}

@@ -292,6 +292,9 @@ logs/
 tmp/
 temp/
 .tmp/
+test_multi_docs/
+folder_test_md/
+folder_test_md.zip
 
 # OS generated files
 .DS_Store?
