@@ -14,3 +14,5 @@ datasets
 langchain-openai
 pandas
 requests
+psutil>=5.9.0
+python-docx>=0.8.11

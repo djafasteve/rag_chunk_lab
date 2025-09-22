@@ -28,13 +28,19 @@ def main():
     parser.add_argument('--model',
                        help='Modèle à utiliser (défaut: mistral:7b pour Ollama)')
     parser.add_argument('--questions-per-doc', type=int, default=10,
-                       help='Nombre de questions par document (défaut: 10)')
+                       help='Nombre de questions à générer pour CHAQUE document supporté (défaut: 10)')
     parser.add_argument('--min-length', type=int, default=200,
                        help='Longueur minimale du texte source (défaut: 200)')
-    parser.add_argument('--max-length', type=int, default=800,
-                       help='Longueur maximale du texte source (défaut: 800)')
+    parser.add_argument('--max-length', type=int, default=3000,
+                       help='Longueur maximale du texte source (défaut: 3000)')
     parser.add_argument('--ollama-url', default='http://localhost:11434',
                        help='URL du serveur Ollama (défaut: http://localhost:11434)')
+    parser.add_argument('--language', default='fr', choices=['fr', 'en', 'es'],
+                       help='Langue pour la génération des questions (défaut: fr)')
+    parser.add_argument('--question-style', default='standard', choices=['standard', 'minimal-keywords'],
+                       help='Style de questions: standard (avec mots-clés) ou minimal-keywords (sans indices) (défaut: standard)')
+    parser.add_argument('--allow-reuse', action='store_true',
+                       help='Permettre de réutiliser les chunks pour générer plus de questions que de chunks disponibles')
 
     args = parser.parse_args()
 
@@ -47,7 +53,7 @@ def main():
     print(f"🚀 Démarrage de la génération de ground truth")
     print(f"📁 Dossier source: {args.folder}")
     print(f"🤖 LLM Provider: {args.llm_provider}")
-    print(f"📊 Questions par document: {args.questions_per_doc}")
+    print(f"📊 Questions par document supporté: {args.questions_per_doc}")
     print(f"💾 Fichier de sortie: {args.output}")
 
     try:
@@ -70,7 +76,7 @@ def main():
             print(f"✅ Connecté à Azure OpenAI: {llm_client.model}")
 
         # Créer le générateur
-        generator = GroundTruthGenerator(llm_client)
+        generator = GroundTruthGenerator(llm_client, language=args.language, question_style=args.question_style)
 
         # Générer le dataset
         output_path = generator.generate_from_folder(
@@ -78,7 +84,8 @@ def main():
             output_path=args.output,
             questions_per_doc=args.questions_per_doc,
             min_text_length=args.min_length,
-            max_text_length=args.max_length
+            max_text_length=args.max_length,
+            allow_reuse=args.allow_reuse
         )
 
         print(f"\n🎉 Génération terminée avec succès!")

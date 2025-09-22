@@ -3,6 +3,12 @@ from typing import List, Dict, Optional
 import json, re, os
 import pandas as pd
 from tqdm import tqdm
+from .embedding_metrics import (
+    EmbeddingMetrics,
+    EmbeddingQualityAnalyzer,
+    evaluate_retrieval_performance,
+    export_embedding_analysis
+)
 
 def load_ground_truth(path: str) -> List[Dict]:
     items = []
@@ -222,3 +228,227 @@ def try_ragas_eval(questions: List[str],
     except Exception as e:
         print(f"RAGAS evaluation error: {str(e)}")
         return {"error": str(e)}
+
+def evaluate_embedding_quality(doc_id: str,
+                              questions: List[str],
+                              per_pipeline_answers: Dict[str, List[str]],
+                              per_pipeline_contexts: Dict[str, List[List[str]]],
+                              ground_truth: List[Dict],
+                              include_retrieval_metrics: bool = True,
+                              include_technical_analysis: bool = True,
+                              k_values: List[int] = [3, 5, 10, 15]) -> Dict:
+    """
+    Évaluation complète de la qualité des embeddings et de la récupération
+
+    Args:
+        doc_id: Identifiant du document
+        questions: Liste des questions
+        per_pipeline_answers: Réponses par pipeline
+        per_pipeline_contexts: Contextes récupérés par pipeline
+        ground_truth: Ground truth
+        include_retrieval_metrics: Inclure les métriques de récupération
+        include_technical_analysis: Inclure l'analyse technique des embeddings
+        k_values: Valeurs de K pour Recall@K
+
+    Returns:
+        Dictionnaire complet des métriques
+    """
+    print(f"\n🎯 Évaluation complète des embeddings pour: {doc_id}")
+    results = {}
+
+    # 1. Métriques de récupération (Recall@K, MRR, NDCG)
+    if include_retrieval_metrics:
+        print(f"\n📊 Calcul des métriques de récupération...")
+
+        # Convertir les contextes en format attendu pour les métriques
+        retrieved_results = {}
+        for pipeline, contexts in per_pipeline_contexts.items():
+            pipeline_chunks = []
+            for context_list in contexts:
+                chunks = [{"text": text, "score": 1.0} for text in context_list]
+                pipeline_chunks.append(chunks)
+            retrieved_results[pipeline] = pipeline_chunks
+
+        retrieval_metrics = evaluate_retrieval_performance(
+            questions=questions,
+            retrieved_results=retrieved_results,
+            ground_truth=ground_truth,
+            k_values=k_values
+        )
+        results["retrieval_metrics"] = retrieval_metrics
+
+    # 2. Analyse technique des embeddings (si disponible)
+    if include_technical_analysis:
+        print(f"\n🔬 Analyse technique des embeddings...")
+        try:
+            # Import de l'analyse des embeddings
+            from .embedding_analysis import analyze_pipeline_embeddings
+            import os
+
+            # Utiliser le répertoire de données par défaut
+            data_dir = os.environ.get('RAG_LAB_DATA', 'data')
+
+            # Analyser les pipelines sémantiques
+            semantic_pipelines = [p for p in per_pipeline_contexts.keys() if p in ['semantic', 'azure_semantic']]
+
+            if semantic_pipelines:
+                technical_analysis_results = analyze_pipeline_embeddings(
+                    doc_id=doc_id,
+                    data_dir=data_dir,
+                    pipelines=semantic_pipelines
+                )
+                results["technical_analysis"] = technical_analysis_results
+            else:
+                results["technical_analysis"] = {
+                    "note": "Aucun pipeline sémantique disponible pour l'analyse technique",
+                    "available_pipelines": list(per_pipeline_contexts.keys())
+                }
+
+        except Exception as e:
+            print(f"⚠️ Analyse technique non disponible: {e}")
+            results["technical_analysis"] = {"error": str(e)}
+
+    # 3. Métriques de comparaison entre pipelines
+    print(f"\n📈 Analyse comparative des pipelines...")
+    pipeline_comparison = compare_pipeline_performance(
+        per_pipeline_answers,
+        per_pipeline_contexts,
+        questions
+    )
+    results["pipeline_comparison"] = pipeline_comparison
+
+    # 4. Métriques spécifiques aux embeddings pour RAGAS
+    print(f"\n🎯 Métriques RAGAS spécialisées pour embeddings...")
+    embedding_focused_metrics = calculate_embedding_focused_ragas_metrics(
+        questions,
+        per_pipeline_answers,
+        per_pipeline_contexts
+    )
+    results["embedding_focused_metrics"] = embedding_focused_metrics
+
+    return results
+
+def compare_pipeline_performance(per_pipeline_answers: Dict[str, List[str]],
+                               per_pipeline_contexts: Dict[str, List[List[str]]],
+                               questions: List[str]) -> Dict:
+    """
+    Compare les performances entre pipelines
+    """
+    comparison = {}
+    pipelines = list(per_pipeline_answers.keys())
+
+    # Statistiques de base
+    for pipeline in pipelines:
+        answers = per_pipeline_answers[pipeline]
+        contexts = per_pipeline_contexts[pipeline]
+
+        # Longueur moyenne des réponses
+        avg_answer_length = sum(len(ans.split()) for ans in answers) / len(answers) if answers else 0
+
+        # Nombre moyen de contextes récupérés
+        avg_context_count = sum(len(ctx) for ctx in contexts) / len(contexts) if contexts else 0
+
+        # Longueur moyenne des contextes
+        total_context_words = sum(len(text.split()) for ctx in contexts for text in ctx)
+        avg_context_length = total_context_words / sum(len(ctx) for ctx in contexts) if sum(len(ctx) for ctx in contexts) > 0 else 0
+
+        comparison[pipeline] = {
+            "avg_answer_length": avg_answer_length,
+            "avg_context_count": avg_context_count,
+            "avg_context_length": avg_context_length,
+            "total_questions": len(questions),
+            "successful_retrievals": sum(1 for ctx in contexts if ctx)
+        }
+
+    return comparison
+
+def calculate_embedding_focused_ragas_metrics(questions: List[str],
+                                           per_pipeline_answers: Dict[str, List[str]],
+                                           per_pipeline_contexts: Dict[str, List[List[str]]]) -> Dict:
+    """
+    Calcule des métriques RAGAS spécialement focalisées sur la qualité des embeddings
+    """
+    metrics = {}
+
+    for pipeline in per_pipeline_answers.keys():
+        answers = per_pipeline_answers[pipeline]
+        contexts = per_pipeline_contexts[pipeline]
+
+        # Métrique 1: Context Quality Score
+        context_quality_scores = []
+        for i, (question, context_list) in enumerate(zip(questions, contexts)):
+            if context_list:
+                # Calculer la pertinence du contexte récupéré
+                quality_score = calculate_context_relevance_score(question, context_list)
+                context_quality_scores.append(quality_score)
+
+        avg_context_quality = sum(context_quality_scores) / len(context_quality_scores) if context_quality_scores else 0
+
+        # Métrique 2: Retrieval Consistency
+        consistency_score = calculate_retrieval_consistency(contexts)
+
+        # Métrique 3: Embedding Coverage
+        coverage_score = calculate_embedding_coverage(questions, contexts)
+
+        metrics[pipeline] = {
+            "context_quality": avg_context_quality,
+            "retrieval_consistency": consistency_score,
+            "embedding_coverage": coverage_score,
+            "sample_size": len(questions)
+        }
+
+    return metrics
+
+def calculate_context_relevance_score(question: str, context_list: List[str]) -> float:
+    """
+    Calcule un score de pertinence du contexte récupéré par rapport à la question
+    """
+    if not context_list or not question:
+        return 0.0
+
+    question_words = set(question.lower().split())
+    relevance_scores = []
+
+    for context in context_list:
+        if not context:
+            continue
+        context_words = set(context.lower().split())
+
+        # Jaccard similarity
+        intersection = len(question_words & context_words)
+        union = len(question_words | context_words)
+        jaccard = intersection / union if union > 0 else 0.0
+        relevance_scores.append(jaccard)
+
+    return sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
+
+def calculate_retrieval_consistency(contexts: List[List[str]]) -> float:
+    """
+    Mesure la consistance de la récupération (variance dans le nombre de chunks récupérés)
+    """
+    if not contexts:
+        return 0.0
+
+    context_counts = [len(ctx) for ctx in contexts]
+    if not context_counts:
+        return 0.0
+
+    # Plus la variance est faible, plus la consistance est élevée
+    import numpy as np
+    variance = np.var(context_counts)
+    mean_count = np.mean(context_counts)
+
+    # Normaliser : consistance = 1 - (variance / mean^2)
+    consistency = 1.0 - (variance / (mean_count ** 2)) if mean_count > 0 else 0.0
+    return max(0.0, consistency)
+
+def calculate_embedding_coverage(questions: List[str], contexts: List[List[str]]) -> float:
+    """
+    Mesure la couverture : proportion de questions pour lesquelles du contexte a été récupéré
+    """
+    if not questions or not contexts:
+        return 0.0
+
+    successful_retrievals = sum(1 for ctx in contexts if ctx and any(text.strip() for text in ctx))
+    coverage = successful_retrievals / len(questions)
+    return coverage

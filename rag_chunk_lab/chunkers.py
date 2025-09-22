@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from .utils import tokenize_words, join_tokens, iter_headings
 
 try:
@@ -7,10 +7,16 @@ try:
 except ImportError:
     SEMANTIC_AVAILABLE = False
 
+def tokenize_pages_once(pages: List[Dict]) -> List[Tuple[Dict, List[str]]]:
+    """OPTIMISATION: Tokenise toutes les pages une seule fois pour réutilisation"""
+    return [(page, tokenize_words(page.get('text') or '')) for page in pages]
+
 def fixed_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: int, doc_id: str) -> List[Dict]:
     chunks: List[Dict] = []
-    for p in pages:
-        tokens = tokenize_words(p.get('text') or '')
+    # OPTIMISATION: Tokenise une seule fois par page
+    tokenized_pages = tokenize_pages_once(pages)
+
+    for p, tokens in tokenized_pages:
         start = 0
         while start < len(tokens):
             end = min(start + size_tokens, len(tokens))
@@ -66,8 +72,10 @@ def structure_aware_chunks(pages: List[Dict], size_tokens: int, overlap_tokens: 
 
 def sliding_window_chunks(pages: List[Dict], window: int, stride: int, doc_id: str) -> List[Dict]:
     chunks: List[Dict] = []
-    for p in pages:
-        tokens = tokenize_words(p.get('text') or '')
+    # OPTIMISATION: Tokenise une seule fois par page
+    tokenized_pages = tokenize_pages_once(pages)
+
+    for p, tokens in tokenized_pages:
         if not tokens:
             continue
         start = 0

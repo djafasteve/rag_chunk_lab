@@ -1,11 +1,13 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Tuple
 import os, joblib, json
 import numpy as np
+from functools import lru_cache
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from .utils import save_json
-from .generation import get_azure_embedding
+from .generation import get_azure_embedding, get_azure_embeddings_batch
 from .config import AZURE_CONFIG
+from .monitoring import monitor_performance
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -13,12 +15,37 @@ try:
 except ImportError:
     SEMANTIC_AVAILABLE = False
 
+@lru_cache(maxsize=1)
+def get_sentence_transformer():
+    """Cache singleton pour SentenceTransformer - évite le rechargement du modèle 1.1GB"""
+    if not SEMANTIC_AVAILABLE:
+        raise ImportError("sentence-transformers non installé. Installer avec: pip install sentence-transformers")
+
+    print("🧠 Chargement du modèle SentenceTransformer (une seule fois)...")
+    return SentenceTransformer('dangvantuan/sentence-camembert-large')
+
+@lru_cache(maxsize=10)
+def load_index_data(doc_id: str, pipeline_name: str, data_dir: str):
+    """Cache LRU pour les données d'index - évite les reloads JSON répétitifs"""
+    base = f"{data_dir}/{doc_id}/{pipeline_name}"
+
+    if not os.path.exists(base):
+        raise FileNotFoundError(f"Pipeline '{pipeline_name}' non trouvé pour le document '{doc_id}'. Vérifiez que l'ingestion a réussi pour ce pipeline.")
+
+    with open(f"{base}/chunks_texts.json", 'r', encoding='utf-8') as f:
+        texts = json.load(f)
+    with open(f"{base}/chunks_meta.json", 'r', encoding='utf-8') as f:
+        meta = json.load(f)
+
+    return texts, meta
+
 try:
     from openai import AzureOpenAI
     AZURE_AVAILABLE = True
 except ImportError:
     AZURE_AVAILABLE = False
 
+@monitor_performance("build_index")
 def build_index(doc_id: str, pipeline_name: str, chunks: List[Dict], data_dir: str):
     os.makedirs(f"{data_dir}/{doc_id}/{pipeline_name}", exist_ok=True)
     texts = [c['text'] for c in chunks]
@@ -39,18 +66,17 @@ def build_index(doc_id: str, pipeline_name: str, chunks: List[Dict], data_dir: s
         joblib.dump(vectorizer, f"{data_dir}/{doc_id}/{pipeline_name}/tfidf_vectorizer.joblib")
         joblib.dump(tfidf, f"{data_dir}/{doc_id}/{pipeline_name}/tfidf_matrix.joblib")
 
+@monitor_performance("build_semantic_index")
 def build_semantic_index(doc_id: str, texts: List[str], data_dir: str):
     """Construit un index sémantique avec des embeddings locaux"""
-    if not SEMANTIC_AVAILABLE:
-        raise ImportError("sentence-transformers non installé. Installer avec: pip install sentence-transformers")
-
     print(f"🧠 Génération des embeddings sémantiques locaux ({len(texts)} chunks)...")
 
-    # Modèle français optimisé pour la recherche sémantique
-    model = SentenceTransformer('dangvantuan/sentence-camembert-large')
+    # Utilise le modèle en cache singleton
+    model = get_sentence_transformer()
 
-    # Génération des embeddings (peut prendre quelques secondes)
+    # Génération des embeddings (peut prendre quelques secondes) - OPTIMISATION: float32
     embeddings = model.encode(texts, show_progress_bar=True, convert_to_numpy=True)
+    embeddings = embeddings.astype(np.float32)  # 50% moins de mémoire
 
     # Sauvegarde des embeddings et du modèle
     np.save(f"{data_dir}/{doc_id}/semantic/embeddings.npy", embeddings)
@@ -58,6 +84,7 @@ def build_semantic_index(doc_id: str, texts: List[str], data_dir: str):
 
     print(f"✅ Embeddings sémantiques sauvegardés ({embeddings.shape})")
 
+@monitor_performance("build_azure_semantic_index")
 def build_azure_semantic_index(doc_id: str, texts: List[str], data_dir: str):
     """Construit un index sémantique avec Azure OpenAI embeddings"""
     if not AZURE_AVAILABLE:
@@ -68,20 +95,25 @@ def build_azure_semantic_index(doc_id: str, texts: List[str], data_dir: str):
 
     print(f"☁️ Génération des embeddings Azure OpenAI ({len(texts)} chunks)...")
 
-    # Génération des embeddings via Azure OpenAI
-    embeddings = []
-    for i, text in enumerate(texts):
-        if i % 10 == 0:
-            print(f"  Progression: {i+1}/{len(texts)}")
-        try:
-            embedding = get_azure_embedding(text)
-            embeddings.append(embedding)
-        except Exception as e:
-            print(f"Erreur embedding chunk {i}: {e}")
-            # Fallback: embedding zéro
-            embeddings.append([0.0] * 1536)  # Dimension standard Azure embeddings
-
-    embeddings_array = np.array(embeddings)
+    # OPTIMISATION: Génération par batch au lieu d'appels individuels
+    try:
+        embeddings = get_azure_embeddings_batch(texts, batch_size=100)
+        embeddings_array = np.array(embeddings, dtype=np.float32)  # 50% moins de mémoire
+    except Exception as e:
+        print(f"⚠️ Échec du batch, retour aux appels individuels: {e}")
+        # Fallback vers l'ancienne méthode si le batch échoue
+        embeddings = []
+        for i, text in enumerate(texts):
+            if i % 10 == 0:
+                print(f"  Progression: {i+1}/{len(texts)}")
+            try:
+                embedding = get_azure_embedding(text)
+                embeddings.append(embedding)
+            except Exception as e:
+                print(f"Erreur embedding chunk {i}: {e}")
+                # Fallback: embedding zéro
+                embeddings.append([0.0] * 1536)  # Dimension standard Azure embeddings
+        embeddings_array = np.array(embeddings, dtype=np.float32)  # Cohérence float32
 
     # Sauvegarde des embeddings
     os.makedirs(f"{data_dir}/{doc_id}/azure_semantic", exist_ok=True)
@@ -90,17 +122,8 @@ def build_azure_semantic_index(doc_id: str, texts: List[str], data_dir: str):
     print(f"✅ Embeddings Azure sauvegardés ({embeddings_array.shape})")
 
 def retrieve(doc_id: str, pipeline_name: str, query: str, top_k: int, data_dir: str):
-    base = f"{data_dir}/{doc_id}/{pipeline_name}"
-
-    # Vérifier que le pipeline existe
-    if not os.path.exists(base):
-        raise FileNotFoundError(f"Pipeline '{pipeline_name}' non trouvé pour le document '{doc_id}'. Vérifiez que l'ingestion a réussi pour ce pipeline.")
-
-    # Chargement des métadonnées et textes (commun)
-    with open(f"{base}/chunks_texts.json", 'r', encoding='utf-8') as f:
-        texts = json.load(f)
-    with open(f"{base}/chunks_meta.json", 'r', encoding='utf-8') as f:
-        meta = json.load(f)
+    # Utilise le cache LRU pour charger les données d'index
+    texts, meta = load_index_data(doc_id, pipeline_name, data_dir)
 
     if pipeline_name == 'semantic':
         # Recherche sémantique locale
@@ -110,6 +133,7 @@ def retrieve(doc_id: str, pipeline_name: str, query: str, top_k: int, data_dir: 
         return azure_semantic_retrieve(doc_id, query, top_k, data_dir, texts, meta)
     else:
         # Recherche TF-IDF classique
+        base = f"{data_dir}/{doc_id}/{pipeline_name}"
         vectorizer = joblib.load(f"{base}/tfidf_vectorizer.joblib")
         tfidf = joblib.load(f"{base}/tfidf_matrix.joblib")
         q = vectorizer.transform([query])
@@ -122,13 +146,10 @@ def retrieve(doc_id: str, pipeline_name: str, query: str, top_k: int, data_dir: 
 
 def semantic_retrieve(doc_id: str, query: str, top_k: int, data_dir: str, texts: List[str], meta: List[Dict]):
     """Recherche sémantique avec embeddings locaux"""
-    if not SEMANTIC_AVAILABLE:
-        raise ImportError("sentence-transformers non installé.")
-
     base = f"{data_dir}/{doc_id}/semantic"
 
-    # Chargement du modèle et des embeddings
-    model = SentenceTransformer(f"{base}/model/")
+    # Utilise le modèle en cache singleton au lieu de recharger depuis le disque
+    model = get_sentence_transformer()
     chunk_embeddings = np.load(f"{base}/embeddings.npy")
 
     # Embedding de la requête
