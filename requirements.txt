@@ -1,6 +1,7 @@
 fastapi==0.112.0
 uvicorn==0.30.6
 typer==0.12.3
+click>=8.0.0,<8.2.0
 pydantic==2.8.2
 numpy==1.26.4
 scikit-learn==1.4.2
