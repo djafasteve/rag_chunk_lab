@@ -6,10 +6,10 @@ import tempfile
 import os
 from unittest.mock import patch, MagicMock
 from rag_chunk_lab.cli import ingest, ask
-from rag_chunk_lab.utils import load_document
-from rag_chunk_lab.chunkers import fixed_chunks
-from rag_chunk_lab.indexing import build_index, retrieve
-from rag_chunk_lab.generation import extractive_answer
+from rag_chunk_lab.utils.utils import load_document
+from rag_chunk_lab.core.chunkers import fixed_chunks
+from rag_chunk_lab.core.indexing import build_index, retrieve
+from rag_chunk_lab.core.generation import extractive_answer
 
 
 class TestCompleteIntegration(unittest.TestCase):
@@ -97,7 +97,7 @@ antérieures contraires. Les autorités compétentes sont chargées de son appli
             pages = load_document(doc_path)
 
             # Utiliser structure-aware chunking
-            from rag_chunk_lab.chunkers import structure_aware_chunks
+            from rag_chunk_lab.core.chunkers import structure_aware_chunks
             chunks = structure_aware_chunks(pages, size_tokens=50, overlap_tokens=10, doc_id='structured_test')
 
             # Vérifier que les sections sont détectées
@@ -129,7 +129,7 @@ antérieures contraires. Les autorités compétentes sont chargées de son appli
         """Test que les optimisations améliorent bien les performances"""
 
         import time
-        from rag_chunk_lab.monitoring import PerformanceMonitor
+        from rag_chunk_lab.utils.monitoring import PerformanceMonitor
 
         monitor = PerformanceMonitor()
 
@@ -219,7 +219,7 @@ antérieures contraires. Les autorités compétentes sont chargées de son appli
                 'sliding': 'rag_chunk_lab.chunkers.sliding_window_chunks'
             }
 
-            from rag_chunk_lab.chunkers import structure_aware_chunks, sliding_window_chunks
+            from rag_chunk_lab.core.chunkers import structure_aware_chunks, sliding_window_chunks
 
             # Tester chaque pipeline
             for pipeline_name in ['fixed', 'structure', 'sliding']:

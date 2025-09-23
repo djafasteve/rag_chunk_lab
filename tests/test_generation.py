@@ -3,7 +3,7 @@ Tests d'intégration pour le module generation.py
 """
 import unittest
 from unittest.mock import patch, MagicMock
-from rag_chunk_lab.generation import (
+from rag_chunk_lab.core.generation import (
     extractive_answer,
     llm_answer,
     get_azure_embedding,

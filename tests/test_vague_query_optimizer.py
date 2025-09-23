@@ -6,7 +6,7 @@ Tests unitaires pour le VagueQueryOptimizer
 import pytest
 import numpy as np
 from unittest.mock import Mock, patch
-from rag_chunk_lab.vague_query_optimizer import VagueQueryOptimizer
+from rag_chunk_lab.vague_query.vague_query_optimizer import VagueQueryOptimizer
 
 
 class TestVagueQueryOptimizer:
@@ -197,7 +197,7 @@ class TestVagueQueryIntegration:
 
     def test_optimize_for_vague_queries_integration(self):
         """Test d'intégration complète"""
-        from rag_chunk_lab.vague_query_optimizer import optimize_for_vague_queries
+        from rag_chunk_lab.vague_query.vague_query_optimizer import optimize_for_vague_queries
 
         # Données de test
         doc_id = "test_collection"
@@ -231,7 +231,7 @@ class TestVagueQueryIntegration:
 
     def test_performance_metrics(self):
         """Test métriques de performance"""
-        from rag_chunk_lab.vague_query_optimizer import optimize_for_vague_queries
+        from rag_chunk_lab.vague_query.vague_query_optimizer import optimize_for_vague_queries
 
         # Beaucoup de requêtes vagues
         vague_questions = ["Quoi?", "Comment?", "Aide", "Info"] * 25  # 100 questions
@@ -254,7 +254,7 @@ class TestVagueQueryIntegration:
 
     def test_domain_adaptation(self):
         """Test adaptation domaine"""
-        from rag_chunk_lab.vague_query_optimizer import optimize_for_vague_queries
+        from rag_chunk_lab.vague_query.vague_query_optimizer import optimize_for_vague_queries
 
         # Questions mixtes
         questions = [

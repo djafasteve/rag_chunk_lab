@@ -10,10 +10,10 @@ import time
 from pathlib import Path
 
 # Ajouter le chemin du module
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from rag_chunk_lab.vague_query_optimizer import VagueQueryOptimizer
-from rag_chunk_lab.hierarchical_chunking import HierarchicalChunker
+from rag_chunk_lab.vague_query.vague_query_optimizer import VagueQueryOptimizer
+from rag_chunk_lab.core.hierarchical_chunking import HierarchicalChunker
 
 
 class TestVagueQueryOptimizerFast(unittest.TestCase):

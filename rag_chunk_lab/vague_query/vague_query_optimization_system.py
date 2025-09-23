@@ -11,13 +11,13 @@ from datetime import datetime
 
 # Imports des composants du système
 from .vague_query_optimizer import VagueQueryOptimizer
-from .hierarchical_chunking import HierarchicalChunker, create_hierarchical_chunks_for_rag
+from ..core.hierarchical_chunking import HierarchicalChunker, create_hierarchical_chunks_for_rag
 from .metadata_enricher import MetadataEnricher, enrich_hierarchical_chunks
 from .hybrid_embeddings import HybridEmbeddingSystem, create_hybrid_index_from_hierarchy
-from .embedding_fine_tuning import create_fine_tuned_model_for_domain, FineTuningConfig
+from ..utils.embedding_fine_tuning import create_fine_tuned_model_for_domain, FineTuningConfig
 from .context_enrichment_pipeline import ContextEnrichmentPipeline, create_context_enrichment_pipeline
 from .adaptive_prompt_engineering import AdaptivePromptEngine, create_adaptive_prompt_engine
-from .production_monitoring import ProductionMonitor, create_production_monitor, setup_automatic_optimization
+from ..utils.production_monitoring import ProductionMonitor, create_production_monitor, setup_automatic_optimization
 
 logger = logging.getLogger(__name__)
 

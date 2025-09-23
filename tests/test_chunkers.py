@@ -4,7 +4,7 @@ Tests d'intégration pour le module chunkers.py
 import unittest
 from unittest import mock
 import tempfile
-from rag_chunk_lab.chunkers import (
+from rag_chunk_lab.core.chunkers import (
     fixed_chunks,
     structure_aware_chunks,
     sliding_window_chunks,

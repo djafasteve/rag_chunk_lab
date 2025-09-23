@@ -2,7 +2,7 @@ from typing import List, Dict
 import re
 import os
 from functools import lru_cache
-from .config import AZURE_CONFIG
+from ..utils.config import AZURE_CONFIG
 
 try:
     from openai import AzureOpenAI

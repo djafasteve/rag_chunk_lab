@@ -4,10 +4,10 @@ import numpy as np
 from functools import lru_cache
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from .utils import save_json
-from .generation import get_azure_embedding, get_azure_embeddings_batch
-from .config import AZURE_CONFIG
-from .monitoring import monitor_performance
+from ..utils.utils import save_json
+from ..core.generation import get_azure_embedding, get_azure_embeddings_batch
+from ..utils.config import AZURE_CONFIG
+from ..utils.monitoring import monitor_performance
 
 try:
     from sentence_transformers import SentenceTransformer

@@ -7,7 +7,7 @@ import os, json
 import numpy as np
 import time
 from pathlib import Path
-from .indexing import load_index_data
+from ..core.indexing import load_index_data
 from .embedding_metrics import EmbeddingQualityAnalyzer
 
 def get_embeddings_for_analysis(doc_id: str, pipeline_name: str, data_dir: str) -> Optional[Tuple[np.ndarray, List[str]]]:

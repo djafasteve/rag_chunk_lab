@@ -2,15 +2,15 @@ import typer, os, json, csv
 from pathlib import Path
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .config import DEFAULTS
-from .utils import load_document
-from .chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks, semantic_chunks, azure_semantic_chunks
-from .indexing import build_index
-from .retrieval import get_candidates
-from .generation import build_answer_payload
-from .evaluation import load_ground_truth, evaluate_local_proxy, try_ragas_eval, evaluate_embedding_quality
-from .ground_truth_generator import GroundTruthGenerator, create_llm_client
-from .monitoring import print_performance_summary
+from .utils.config import DEFAULTS
+from .utils.utils import load_document
+from .core.chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks, semantic_chunks, azure_semantic_chunks
+from .core.indexing import build_index
+from .core.retrieval import get_candidates
+from .core.generation import build_answer_payload
+from .evaluation.evaluation import load_ground_truth, evaluate_local_proxy, try_ragas_eval, evaluate_embedding_quality
+from .evaluation.ground_truth_generator import GroundTruthGenerator, create_llm_client
+from .utils.monitoring import print_performance_summary
 
 app = typer.Typer(help='RAG Chunk Lab — compare chunking strategies for RAG quality.')
 DATA_DIR = os.environ.get('RAG_LAB_DATA', 'data')
@@ -225,7 +225,7 @@ def chat(doc_id: str = typer.Option(..., '--doc-id'),
     Gets relevant chunks and asks an LLM to synthesize a comprehensive answer.
     Perfect for natural conversations with your document collection.
     """
-    from .ground_truth_generator import create_llm_client
+    from .evaluation.ground_truth_generator import create_llm_client
 
     # Get relevant chunks using the specified pipeline
     try:
@@ -415,7 +415,7 @@ def evaluate(doc_id: str = typer.Option(..., '--doc-id'),
             report['embedding_analysis'] = embedding_results
 
             # Export detailed embedding analysis
-            from .embedding_metrics import export_embedding_analysis
+            from .evaluation.embedding_metrics import export_embedding_analysis
             export_path = export_embedding_analysis(doc_id, embedding_results)
             print(f"💾 Embedding analysis exported to: {export_path}")
 
@@ -427,7 +427,7 @@ def evaluate(doc_id: str = typer.Option(..., '--doc-id'),
     if legal_evaluation:
         print(f"\n⚖️ Starting legal evaluation...")
         try:
-            from .legal_evaluation import run_legal_evaluation_suite
+            from .evaluation.legal_evaluation import run_legal_evaluation_suite
 
             legal_results = run_legal_evaluation_suite(
                 doc_id=doc_id,
@@ -447,7 +447,7 @@ def evaluate(doc_id: str = typer.Option(..., '--doc-id'),
     if generic_evaluation:
         print(f"\n🔍 Starting generic evaluation...")
         try:
-            from .generic_evaluation import run_generic_evaluation_suite
+            from .evaluation.generic_evaluation import run_generic_evaluation_suite
 
             generic_results = run_generic_evaluation_suite(
                 doc_id=doc_id,
@@ -521,7 +521,7 @@ def evaluate(doc_id: str = typer.Option(..., '--doc-id'),
     if azure_foundry:
         print(f"\n🌟 Starting Azure AI Foundry evaluation...")
         try:
-            from .azure_foundry_evaluation import integrate_with_azure_foundry
+            from .evaluation.azure_foundry_evaluation import integrate_with_azure_foundry
 
             foundry_results = integrate_with_azure_foundry(
                 doc_id=doc_id,
@@ -546,7 +546,7 @@ def evaluate(doc_id: str = typer.Option(..., '--doc-id'),
     if optimize_vague_queries:
         print(f"\n🎯 Starting vague query optimization...")
         try:
-            from .vague_query_optimizer import optimize_for_vague_queries
+            from .vague_query.vague_query_optimizer import optimize_for_vague_queries
 
             openai_api_key = os.getenv('OPENAI_API_KEY')
             domain = "legal" if legal_evaluation else "general"
@@ -793,7 +793,7 @@ def analyze_embeddings(
     Example:
     python -m rag_chunk_lab.cli analyze-embeddings --doc-id legal_docs --pipelines semantic,azure_semantic
     """
-    from .embedding_analysis import run_comprehensive_embedding_analysis
+    from .evaluation.embedding_analysis import run_comprehensive_embedding_analysis
     from pathlib import Path
 
     pipelines_list = [p.strip() for p in pipelines.split(',')]

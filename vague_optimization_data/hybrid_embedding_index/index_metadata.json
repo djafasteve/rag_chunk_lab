@@ -5,6 +5,6 @@
     "dense": 0.7,
     "sparse": 0.3
   },
-  "index_size": 14,
-  "sparse_vocab_size": 10
+  "index_size": 16,
+  "sparse_vocab_size": 22
 }

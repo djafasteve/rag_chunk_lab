@@ -11,7 +11,7 @@ from pathlib import Path
 # Ajouter le module au chemin
 sys.path.insert(0, str(Path(__file__).parent))
 
-from rag_chunk_lab.ground_truth_generator import GroundTruthGenerator, create_llm_client
+from rag_chunk_lab.evaluation.ground_truth_generator import GroundTruthGenerator, create_llm_client
 
 
 def main():

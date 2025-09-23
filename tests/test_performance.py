@@ -7,10 +7,10 @@ import tempfile
 import os
 from unittest.mock import patch, MagicMock
 import numpy as np
-from rag_chunk_lab.monitoring import PerformanceMonitor
-from rag_chunk_lab.chunkers import fixed_chunks, tokenize_pages_once
-from rag_chunk_lab.indexing import build_index, load_index_data
-from rag_chunk_lab.generation import get_azure_embeddings_batch
+from rag_chunk_lab.utils.monitoring import PerformanceMonitor
+from rag_chunk_lab.core.chunkers import fixed_chunks, tokenize_pages_once
+from rag_chunk_lab.core.indexing import build_index, load_index_data
+from rag_chunk_lab.core.generation import get_azure_embeddings_batch
 
 
 class TestPerformanceOptimizations(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestPerformanceOptimizations(unittest.TestCase):
 
     def test_tokenization_cache_performance(self):
         """Test que le cache de tokenisation améliore les performances"""
-        from rag_chunk_lab.utils import tokenize_words
+        from rag_chunk_lab.utils.utils import tokenize_words
 
         test_text = "Ceci est un texte de test répété pour mesurer les performances de cache."
 
@@ -62,7 +62,7 @@ class TestPerformanceOptimizations(unittest.TestCase):
         start_time = time.time()
         old_method_tokens = []
         for page in self.large_pages:
-            from rag_chunk_lab.utils import tokenize_words
+            from rag_chunk_lab.utils.utils import tokenize_words
             tokens = tokenize_words(page['text'])
             old_method_tokens.append((page, tokens))
         old_method_time = time.time() - start_time

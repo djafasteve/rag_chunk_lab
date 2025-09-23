@@ -6,9 +6,9 @@ from unittest.mock import patch, MagicMock, call
 import tempfile
 import os
 import numpy as np
-from rag_chunk_lab.chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks, tokenize_pages_once
-from rag_chunk_lab.utils import tokenize_words, join_tokens
-from rag_chunk_lab.monitoring import PerformanceMonitor, monitor_performance
+from rag_chunk_lab.core.chunkers import fixed_chunks, structure_aware_chunks, sliding_window_chunks, tokenize_pages_once
+from rag_chunk_lab.utils.utils import tokenize_words, join_tokens
+from rag_chunk_lab.utils.monitoring import PerformanceMonitor, monitor_performance
 
 
 class TestTokenizationOptimizations(unittest.TestCase):
@@ -60,7 +60,7 @@ class TestCacheOptimizations(unittest.TestCase):
 
     def test_singleton_pattern_azure_client(self):
         """Test que le client Azure utilise bien le singleton pattern"""
-        from rag_chunk_lab.generation import get_azure_client
+        from rag_chunk_lab.core.generation import get_azure_client
 
         with patch('rag_chunk_lab.generation.AZURE_CONFIG') as mock_config:
             mock_config.api_key = 'test-key'
@@ -82,7 +82,7 @@ class TestCacheOptimizations(unittest.TestCase):
 
     def test_sentence_transformer_singleton(self):
         """Test que SentenceTransformer utilise bien le singleton pattern"""
-        from rag_chunk_lab.indexing import get_sentence_transformer
+        from rag_chunk_lab.core.indexing import get_sentence_transformer
 
         with patch('rag_chunk_lab.indexing.SEMANTIC_AVAILABLE', True):
             with patch('rag_chunk_lab.indexing.SentenceTransformer') as mock_st:
@@ -100,7 +100,7 @@ class TestCacheOptimizations(unittest.TestCase):
 
     def test_index_data_cache(self):
         """Test que load_index_data utilise bien le cache LRU"""
-        from rag_chunk_lab.indexing import load_index_data
+        from rag_chunk_lab.core.indexing import load_index_data
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Créer des fichiers de test
@@ -126,7 +126,7 @@ class TestBatchOptimizations(unittest.TestCase):
 
     def test_azure_embeddings_batch_function(self):
         """Test que get_azure_embeddings_batch traite par batch"""
-        from rag_chunk_lab.generation import get_azure_embeddings_batch
+        from rag_chunk_lab.core.generation import get_azure_embeddings_batch
 
         texts = [f"text {i}" for i in range(250)]  # 250 textes pour tester le batch
 
@@ -146,7 +146,7 @@ class TestBatchOptimizations(unittest.TestCase):
 
     def test_memory_optimization_float32(self):
         """Test que les embeddings utilisent float32"""
-        from rag_chunk_lab.indexing import build_semantic_index
+        from rag_chunk_lab.core.indexing import build_semantic_index
 
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch('rag_chunk_lab.indexing.get_sentence_transformer') as mock_st:
@@ -243,7 +243,7 @@ class TestFallbackMechanisms(unittest.TestCase):
 
     def test_azure_batch_fallback(self):
         """Test que le fallback fonctionne si le batch échoue"""
-        from rag_chunk_lab.indexing import build_azure_semantic_index
+        from rag_chunk_lab.core.indexing import build_azure_semantic_index
 
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch('rag_chunk_lab.indexing.AZURE_AVAILABLE', True):

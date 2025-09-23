@@ -99,9 +99,9 @@ def reset_caches():
     """Fixture qui nettoie les caches entre les tests"""
     # Nettoyer les caches LRU si nécessaire
     try:
-        from rag_chunk_lab.utils import tokenize_words
-        from rag_chunk_lab.indexing import load_index_data, get_sentence_transformer
-        from rag_chunk_lab.generation import get_azure_client
+        from rag_chunk_lab.utils.utils import tokenize_words
+        from rag_chunk_lab.core.indexing import load_index_data, get_sentence_transformer
+        from rag_chunk_lab.core.generation import get_azure_client
 
         # Vider les caches LRU
         tokenize_words.cache_clear()

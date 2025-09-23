@@ -1,5 +1,5 @@
 from typing import List, Dict, Tuple
-from .utils import tokenize_words, join_tokens, iter_headings
+from ..utils.utils import tokenize_words, join_tokens, iter_headings
 
 try:
     from sentence_transformers import SentenceTransformer

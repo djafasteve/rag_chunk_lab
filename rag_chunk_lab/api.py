@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query
-from .config import DEFAULTS
-from .retrieval import get_candidates
-from .generation import build_answer_payload
+from .utils.config import DEFAULTS
+from .core.retrieval import get_candidates
+from .core.generation import build_answer_payload
 import os
 
 app = FastAPI(title='RAG Chunk Lab API')

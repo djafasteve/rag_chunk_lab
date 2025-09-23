@@ -7,7 +7,7 @@ import os
 import json
 import numpy as np
 from unittest.mock import patch, MagicMock
-from rag_chunk_lab.indexing import (
+from rag_chunk_lab.core.indexing import (
     build_index,
     build_semantic_index,
     build_azure_semantic_index,

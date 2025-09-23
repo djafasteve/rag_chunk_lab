@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from tqdm import tqdm
 
-from .utils import load_document
-from .chunkers import fixed_chunks
+from ..utils.utils import load_document
+from ..core.chunkers import fixed_chunks
 
 
 class LLMClient:

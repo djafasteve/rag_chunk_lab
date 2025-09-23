@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 
 # Ajouter le chemin du module
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from rag_chunk_lab.vague_query_optimization_system import (
+from rag_chunk_lab.vague_query.vague_query_optimization_system import (
     create_vague_optimization_system,
     quick_vague_query_optimization
 )

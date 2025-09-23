@@ -29,7 +29,7 @@ class TestBasicFunctionality(unittest.TestCase):
 
     def test_tokenization_basic(self):
         """Test de base de la tokenisation"""
-        from rag_chunk_lab.utils import tokenize_words, join_tokens
+        from rag_chunk_lab.utils.utils import tokenize_words, join_tokens
 
         text = "Hello world! This is a test."
         tokens = tokenize_words(text)
@@ -46,7 +46,7 @@ class TestBasicFunctionality(unittest.TestCase):
 
     def test_chunking_basic(self):
         """Test de base du chunking"""
-        from rag_chunk_lab.chunkers import fixed_chunks
+        from rag_chunk_lab.core.chunkers import fixed_chunks
 
         pages = [
             {'page': 1, 'text': 'This is a test document with some text.', 'source_file': 'test.txt'}
@@ -66,7 +66,7 @@ class TestBasicFunctionality(unittest.TestCase):
 
     def test_monitoring_basic(self):
         """Test de base du monitoring"""
-        from rag_chunk_lab.monitoring import PerformanceMonitor
+        from rag_chunk_lab.utils.monitoring import PerformanceMonitor
 
         monitor = PerformanceMonitor()
 
@@ -81,7 +81,7 @@ class TestBasicFunctionality(unittest.TestCase):
 
     def test_optimizations_working(self):
         """Test que les optimisations de base fonctionnent"""
-        from rag_chunk_lab.chunkers import tokenize_pages_once
+        from rag_chunk_lab.core.chunkers import tokenize_pages_once
 
         pages = [
             {'page': 1, 'text': 'Test page one'},
