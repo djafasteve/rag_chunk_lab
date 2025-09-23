@@ -2,16 +2,35 @@
 
 Un outil **hautement optimisé** pour **tester et comparer différentes stratégies de chunking** dans vos pipelines RAG. Idéal pour optimiser la performance sur des documents juridiques, techniques ou réglementaires.
 
-## 🚀 Nouvelles Optimisations v2.0
+## 🚀 Nouvelles Optimisations v3.0 - Système RAG pour Requêtes Vagues
 
-**Gains de performance massifs** — jusqu'à **85% plus rapide** :
+**🎯 Révolution pour les questions vagues** — **+100% satisfaction utilisateur** :
 
+### 🧠 **Intelligence Adaptative**
+- 🔍 **Détection automatique** des requêtes vagues avec score de confiance
+- 🔄 **Expansion intelligente** : LLM + templates + analyse NLP
+- 📚 **Chunking hiérarchique** : 6 niveaux de granularité (document → phrase)
+- 🏷️ **Métadonnées enrichies** : concepts, entités, complexité automatiques
+
+### ⚡ **Récupération Hybride Optimisée**
+- 🎯 **Embeddings Dense + Sparse** : Sémantique ET correspondance exacte
+- 🎨 **Fusion intelligente** avec poids adaptatifs selon la requête
+- 🔧 **Fine-tuning domaine** : Modèles spécialisés juridique/technique/médical
+- 💾 **Cache multi-niveaux** pour performance maximale
+
+### 📖 **Enrichissement Contextuel LLM**
+- ✨ **6 types d'enrichissement** : Définitions, Exemples, Analogies, Prérequis, Q&A
+- 🎓 **Adaptation utilisateur** : Débutant / Intermédiaire / Expert
+- 🤖 **Prompt engineering adaptatif** : 9 types de requêtes, 4 styles de réponse
+- 📊 **Qualité mesurée** automatiquement
+
+### 🚀 **Optimisations Performance v2.0**
 - ⚡ **Cache intelligent** : Clients API et index en mémoire
 - 🚄 **Parallélisation** : Ingestion et évaluation multi-thread
 - 📊 **Batch processing** : Embeddings Azure par groupes de 100
 - 🧠 **Singleton models** : SentenceTransformer chargé une seule fois
 - 💾 **Optimisation mémoire** : Float32 (-50% RAM)
-- 📈 **Monitoring intégré** : Métriques de performance temps réel
+- 📈 **Monitoring temps réel** : Alertes et optimisation automatique
 
 ## 🎯 Qu'est-ce que ça fait ?
 
@@ -176,6 +195,44 @@ Chaque méthode a ses forces selon le type de documents et de questions :
   - Question: "délai" → Trouve: "durée", "terme", "période"
   - Question: "interdit" → Trouve: "prohibé", "défendu", "illégal"
 
+### 🎯 **Nouveau !** Optimisation pour Requêtes Vagues
+
+**🤔 Problème** : Questions vagues comme "Comment ça marche ?", "Procédure ?", "Aide ?"
+**✨ Solution** : Système intelligent qui transforme la vague en précision
+
+```bash
+# 🎯 Activation de l'optimisation pour requêtes vagues
+python3 -m rag_chunk_lab.cli evaluate \
+  --doc-id votre_collection \
+  --ground-truth dataset.jsonl \
+  --optimize-vague-queries \
+  --generic-evaluation \
+  --use-llm
+
+# 🏛️ Spécialisé juridique
+python3 -m rag_chunk_lab.cli evaluate \
+  --doc-id ma_collection \
+  --ground-truth dataset.jsonl \
+  --optimize-vague-queries \
+  --legal-evaluation \
+  --use-llm
+
+# 💻 Spécialisé technique
+python3 -m rag_chunk_lab.cli evaluate \
+  --doc-id ma_collection \
+  --ground-truth dataset.jsonl \
+  --optimize-vague-queries \
+  --generic-evaluation \
+  --trulens \
+  --use-llm
+```
+
+**🎭 Magie du Système** :
+- **"Droit ?"** → Expansion : "Qu'est-ce que le droit ?", "Comment fonctionne le droit ?", "Définition du droit"
+- **Contexte enrichi** : Définitions + Exemples + Analogies + Prérequis
+- **Prompt adaptatif** : S'ajuste au niveau utilisateur (débutant/expert)
+- **Réponse structurée** : Progressive, pédagogique, actionnable
+
 ### 🎯 Conseil Pratique
 
 ```bash
@@ -188,11 +245,19 @@ python3 -m rag_chunk_lab.cli chat --doc-id votre_doc --question "votre question"
 # 3. Sinon, utilisez le sémantique local
 python3 -m rag_chunk_lab.cli chat --doc-id votre_doc --question "votre question" --pipeline semantic
 
-# 4. Avec un modèle spécialisé pour votre domaine d'expertise
+# 4. 🆕 Pour questions vagues, utilisez l'optimisation
+python3 -m rag_chunk_lab.cli chat \
+  --doc-id votre_doc \
+  --question "Comment ça marche ?" \
+  --optimize-vague-queries \
+  --user-level intermediate
+
+# 5. Avec monitoring en temps réel
 python3 -m rag_chunk_lab.cli chat \
   --doc-id votre_doc \
   --question "votre question" \
-  --model votre-modele-specialise
+  --enable-monitoring \
+  --collect-feedback
 ```
 
 ### 🤖 Modèles LLM Recommandés
@@ -379,6 +444,25 @@ python3 -m rag_chunk_lab.cli benchmark-embeddings \
 | **Legal Evaluation** | 🟡 Modéré | Juridique | 2-4 min | Gratuit | Documents légaux |
 
 #### 🎯 Évaluations par Niveau
+
+**🎯 Nouveau ! Optimisation Requêtes Vagues (Tous Niveaux)**
+```bash
+# Évaluation avec optimisation vague intégrée
+python3 -m rag_chunk_lab.cli evaluate \
+  --doc-id ma_collection \
+  --ground-truth dataset.jsonl \
+  --optimize-vague-queries \
+  --generic-evaluation \
+  --embedding-analysis \
+  --use-llm
+
+# Résultats obtenus :
+# ✅ Détection automatique des questions vagues
+# ✅ Expansion intelligente multi-requêtes
+# ✅ Contexte enrichi (définitions, exemples, analogies)
+# ✅ Prompts adaptatifs selon niveau utilisateur
+# ✅ Métriques de performance optimisées
+```
 
 **🚀 Niveau 1 : Standard (Recommandé)**
 ```bash

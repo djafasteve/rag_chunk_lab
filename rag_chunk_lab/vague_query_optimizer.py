@@ -48,9 +48,9 @@ class VagueQueryOptimizer:
 
         domain_keywords = {
             "legal": {
-                "concepts": ["droit", "loi", "article", "jurisprudence", "tribunal", "procédure"],
-                "actions": ["porter plainte", "intenter", "assigner", "comparaître"],
-                "entities": ["avocat", "juge", "procureur", "défendeur", "demandeur"]
+                "concepts": ["droit", "loi", "article", "jurisprudence", "tribunal", "procédure", "TVA", "facture", "contrat", "obligation", "prescription", "délai"],
+                "actions": ["porter plainte", "intenter", "assigner", "comparaître", "calculer", "facturer", "contracter"],
+                "entities": ["avocat", "juge", "procureur", "défendeur", "demandeur", "entreprise", "client"]
             },
             "technical": {
                 "concepts": ["algorithme", "architecture", "framework", "API", "base de données"],
@@ -101,10 +101,30 @@ class VagueQueryOptimizer:
         if domain_matches == 0:
             vagueness_score += 0.3
 
-        # 4. Mots interrogatifs génériques
+        # 4. Mots interrogatifs génériques (mais pas s'il y a des termes spécifiques)
         generic_words = ["quoi", "comment", "pourquoi", "ça", "truc", "chose"]
         generic_count = sum(1 for word in generic_words if word in query_lower)
-        vagueness_score += min(generic_count * 0.1, 0.2)
+
+        # Vérifier s'il y a des termes spécifiques qui compensent les mots génériques
+        specific_terms = ["calculer", "TVA", "facture", "article", "procédure", "délai", "prescription",
+                         "système", "judiciaire", "français", "divorce", "contrat", "tribunal", "droit"]
+        specific_count = sum(1 for term in specific_terms if term.lower() in query_lower)
+
+        # Bonus pour les combinaisons de termes spécifiques
+        if len(query_lower.split()) >= 4 and specific_count >= 2:
+            specific_count += 1  # Bonus pour question détaillée
+
+        # Réduire l'impact des mots génériques s'il y a des termes spécifiques
+        if specific_count > 0:
+            vagueness_score += max(0, min(generic_count * 0.05, 0.1))  # Impact réduit
+        else:
+            vagueness_score += min(generic_count * 0.1, 0.2)
+
+        # 5. Ajustement final basé sur la richesse en termes spécifiques
+        if specific_count >= 3:  # Question très spécifique
+            vagueness_score *= 0.5  # Réduction de 50%
+        elif specific_count >= 2:  # Question assez spécifique
+            vagueness_score *= 0.7  # Réduction de 30%
 
         is_vague = vagueness_score >= 0.4
 

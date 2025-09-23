@@ -1,0 +1,10 @@
+{
+  "domain": "legal",
+  "language": "fr",
+  "fusion_weights": {
+    "dense": 0.7,
+    "sparse": 0.3
+  },
+  "index_size": 14,
+  "sparse_vocab_size": 10
+}
