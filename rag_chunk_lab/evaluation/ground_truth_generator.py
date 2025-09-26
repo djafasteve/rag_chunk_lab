@@ -277,11 +277,11 @@ Responde ÚnicAMENTE en formato JSON:
         if not folder_path.exists():
             raise FileNotFoundError(f"Folder not found: {folder_path}")
 
-        # Trouver tous les documents supportés
+        # Trouver tous les documents supportés (récursivement dans tous les sous-dossiers)
         doc_files = []
         supported_extensions = ['*.pdf', '*.docx', '*.doc', '*.txt', '*.md']
         for ext in supported_extensions:
-            doc_files.extend(folder_path.glob(ext))
+            doc_files.extend(folder_path.rglob(ext))  # rglob pour recherche récursive
 
         if not doc_files:
             raise FileNotFoundError(f"No supported documents found in {folder_path}")

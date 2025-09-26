@@ -239,6 +239,7 @@ Temporary Items
 # Data and indexes - keep structure but not content
 data/
 !data/.gitkeep
+ITB_DOCS/
 
 # Exports - results of evaluations
 exports/
